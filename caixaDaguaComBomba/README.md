@@ -1,4 +1,4 @@
-# Projeto: Monitoramento de Caixa D'Água com ESP8266
+# Projeto: Monitoramento de Caixa d'água com ESP8266
 
 Este repositório contém o código para um sistema de monitoramento de uma caixa d'água utilizando um ESP8266. O sistema permite o controle do nível de água na caixa d'água, o acionamento automático de uma bomba de água e a publicação dos dados via MQTT para um broker.
 
