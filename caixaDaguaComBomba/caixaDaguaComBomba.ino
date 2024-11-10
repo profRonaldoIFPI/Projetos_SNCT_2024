@@ -3,6 +3,7 @@
 #include <PubSubClient.h> //Nick O'Larry
 #include <ArduinoJson.h>  //Benoit Blanchon 
 #include <math.h> 
+#include "credenciais.h"  //dados de login e conexão
 
 #define RELAY 0 //D3
 
@@ -30,11 +31,7 @@
   #define ALTURA_TAMPA 72 - ALTURA
 #endif
 
-const char* wifi_name = "iot_net";
-const char* wifi_pass = "ufersaPPGCC#2024";
-const char* mqtt_server = "192.168.0.3";
-const char* mqtt_user = "raspi";
-const char* mqtt_pass = "iotnet";
+
 
 WiFiClient espClient; //acesso à camada de transporte(TCP)
 PubSubClient client(espClient);
@@ -44,11 +41,12 @@ Ultrasonic ultrasonic(5, 4); //D1 e D2 | echo e trigger
 JsonDocument mensagem;
 
 void setup_wifi();
-void callback(char* topic, byte* payload, unsigned int length);
+// void callback(char* topic, byte* payload, unsigned int length);
 void mqtt_connect();
+void publica(char saida[60]);
 float calcula_capacidade();
-float calc_vol(float altura_da_agua);
-float calc_per(int distancia_tampa);
+float calcula_volume(float altura_da_agua);
+float calcula_percentual(int distancia_tampa);
 
 float capacidade;
 
@@ -63,8 +61,8 @@ void setup() {
 void loop() {
   int distancia_tampa = ultrasonic.read();
   int altura_agua = ALTURA - distancia_tampa; // Calcula a altura da água na caixa
-  float percentual = calc_per(distancia_tampa); // altura da superficie da água
-  float volume = calc_vol(altura_agua); // altura da água
+  float percentual = calcula_percentual(distancia_tampa); // altura da superficie da água
+  float volume = calcula_volume(altura_agua); // altura da água
   mensagem["nivel"] = percentual;
   mensagem["volume"] = volume;
   mensagem["bomba"] = "desligada"; 
@@ -76,30 +74,24 @@ void loop() {
       digitalWrite(RELAY, HIGH);
       distancia_tampa = ultrasonic.read();
       altura_agua = ALTURA - distancia_tampa;
-      percentual = calc_per(distancia_tampa); 
-      volume = calc_vol(altura_agua);
+      percentual = calcula_percentual(distancia_tampa); 
+      volume = calcula_volume(altura_agua);
       mensagem["nivel"] = percentual;
       mensagem["volume"] = volume;
       mensagem["bomba"] = "ligada";
       serializeJson(mensagem, saida);
-      if (client.connected()) {
-        client.publish("CaixaDagua", saida);       
-      } else {
-        mqtt_connect();
-      }
+      publica(saida);
       delay(50);
     }
   }
-  if (client.connected()) {
-    client.publish("CaixaDagua", saida);      
-  } else {
-    mqtt_connect();
-  }
+
+  publica(saida);
   client.loop();
   delay(1000);
 }
 
 //========== FUNÇÕES =============
+
 void setup_wifi() {
   Serial.println();
   Serial.print("Connecting to ");
@@ -151,6 +143,13 @@ void mqtt_connect() {
   }
 }
 
+void publica(char saida[60]) {
+  if (client.connected()){
+    client.publish("CaixaDagua", saida);
+  } else {
+    mqtt_connect();
+  }
+}
 float calcula_capacidade() {
   #if PARALELEPIPEDO
     return ALTURA * LARGURA * PROFUNDIDADE;
@@ -160,8 +159,8 @@ float calcula_capacidade() {
 }
 
 #if PARALELEPIPEDO
-  float calc_vol(float altura_da_agua) { // caixa d'água em formato de paralelepípedo ou cubo
-    altura_da_agua = altura_da_agua - ALTURA_TAMPA
+  float calcula_volume(float altura_da_agua) { // caixa d'água em formato de paralelepípedo ou cubo
+    altura_da_agua = altura_da_agua - ALTURA_TAMPA;
     return altura_da_agua * LARGURA * PROFUNDIDADE;
   }
 #elif TRONCO_CONE
@@ -171,6 +170,6 @@ float calcula_capacidade() {
   }
 #endif
 
-float calc_per(int altura_da_agua) {
-  return (calc_vol(altura_da_agua)/capacidade) * 100;
+float calcula_percentual(int altura_da_agua) {
+  return (calcula_volume(altura_da_agua)/capacidade) * 100;
 }
